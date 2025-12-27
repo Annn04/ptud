@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Báo cáo địa bàn phụ trách</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<style>
+table {border-collapse: collapse; margin-top:10px}
+th,td {border:1px solid #ccc; padding:4px 8px; font-size:13px}
+th {background:#eee}
+</style>
+</head>
+<body>
+
+<h3>BÁO CÁO THUÊ BAO – ĐỊA BÀN PHỤ TRÁCH</h3>
+
+<div id="tonghop">Đang xử lý...</div>
+
+<h4>📊 Thống kê theo xã</h4>
+<div id="theo_xa"></div>
+
+<h4>📋 Danh sách thuê bao</h4>
+<button onclick="exportExcel()">⬇ Xuất Excel</button>
+<div id="danhsach"></div>
+
+<script>
+const DIA_BAN = [
+ "minh thành","thịnh thành","tây thành","đại thành",
+ "vân tụ","công thành","mỹ thành","liên thành",
+ "khánh thành","lý thành"
+];
+
+let FILTERED_DATA = [];
+
+fetch("data.xlsx")
+.then(res => res.arrayBuffer())
+.then(buf => {
+  const wb = XLSX.read(buf,{type:"array"});
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet);
+
+  FILTERED_DATA = rows.filter(r=>{
+    const dc = (r.DIACHI_TB||"").toLowerCase();
+    return DIA_BAN.some(xa=>dc.includes(xa));
+  });
+
+  tongHop();
+  thongKeTheoXa();
+  hienDanhSach();
+});
+
+function tongHop(){
+  const tongDT = FILTERED_DATA.reduce((s,r)=>s+r.DOANH_THU,0);
+  document.getElementById("tonghop").innerHTML = `
+    Số xã phụ trách: <b>${DIA_BAN.length}</b><br>
+    Tổng thuê bao: <b>${FILTERED_DATA.length}</b><br>
+    Tổng doanh thu: <b>${tongDT.toLocaleString()} đ</b><br>
+    Doanh thu TB: <b>${FILTERED_DATA.length ? (tongDT/FILTERED_DATA.length).toLocaleString() : 0} đ</b>
+  `;
+}
+
+function thongKeTheoXa(){
+  let html = "<table><tr><th>Xã</th><th>Số TB</th><th>Doanh thu</th></tr>";
+  DIA_BAN.forEach(xa=>{
+    const rows = FILTERED_DATA.filter(r =>
+      (r.DIACHI_TB||"").toLowerCase().includes(xa)
+    );
+    const dt = rows.reduce((s,r)=>s+r.DOANH_THU,0);
+    html += `<tr>
+      <td>${xa}</td>
+      <td>${rows.length}</td>
+      <td>${dt.toLocaleString()}</td>
+    </tr>`;
+  });
+  html += "</table>";
+  document.getElementById("theo_xa").innerHTML = html;
+}
+
+function hienDanhSach(){
+  let html = "<table><tr>";
+  ["LOAIHINH_TB","MA_TB","TEN_TB","DIACHI_TB","DOANH_THU","MUCCUOC","MST"]
+    .forEach(h=>html+=`<th>${h}</th>`);
+  html+="</tr>";
+
+  FILTERED_DATA.forEach(r=>{
+    html+="<tr>";
+    ["LOAIHINH_TB","MA_TB","TEN_TB","DIACHI_TB","DOANH_THU","MUCCUOC","MST"]
+      .forEach(k=>html+=`<td>${r[k]||""}</td>`);
+    html+="</tr>";
+  });
+  html+="</table>";
+  document.getElementById("danhsach").innerHTML = html;
+}
+
+function exportExcel(){
+  const ws = XLSX.utils.json_to_sheet(FILTERED_DATA);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "DiaBanCuaToi");
+  XLSX.writeFile(wb, "bao_cao_dia_ban.xlsx");
+}
+</script>
+
+</body>
+</html>
